@@ -1,0 +1,1 @@
+#Creates a pulse score from all data recieved
