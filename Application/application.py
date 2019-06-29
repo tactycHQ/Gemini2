@@ -2,6 +2,7 @@
 #Pulls tweets based on queries
 from APICalls.tmdb_api import TMDBRequests
 from APICalls.twitter_api import GetTwitter
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 from itertools import islice
@@ -96,7 +97,7 @@ class Application():
         counter=0
 
         logging.info("Getting Tweets from Twitter API")
-        for index, row in self.query_df.iterrows():
+        for index, row in tqdm(self.query_df.iterrows()):
             if counter < batch_size:
                 try:
                     tweets_text, tweet_location, tweet_time = getTwitter.getTweetsbyQuery(row['queryString'], max_tweets, date_since)
@@ -127,7 +128,6 @@ class Application():
         return queryResults
 
     def flatten_queries(self, query_df):
-
         title = []
         rawTweet = []
         spacyTweet = []
@@ -145,7 +145,7 @@ class Application():
 
 if __name__ == '__main__':
     app = Application()
-    results = app.getTweets(batch_size=10)
+    results = app.getTweets(batch_size=300)
 
 
 
