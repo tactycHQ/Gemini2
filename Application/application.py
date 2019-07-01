@@ -85,6 +85,7 @@ class Application():
         self.createTwitterQueries()
 
         # instantate twitter api
+        logging.info("Initializing Twitter API")
         getTwitter = GetTwitter()
         max_tweets = 100
         date_since = "2019-06-01"

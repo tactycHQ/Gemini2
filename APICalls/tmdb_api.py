@@ -115,8 +115,26 @@ class TMDBRequests():
         logging.info("{} movies added manually with TMDB Data".format(additions))
 
         self.allTitles['content_type'] = "movie"
-        self.allTitles.to_csv("..//Database//all_tmdb_movies.csv")
-        logging.info("All titles data saved to file")
+        logging.info("{} combined titles from TMDB extracted".format(self.allTitles.shape[0]))
+
+        #Checking against existing DB
+        try:
+            logging.info("Checking for duplicates against current database")
+            existing_db = pd.read_csv("..//Database//all_tmdb_movies.csv", index_col=0).reset_index(drop=True)
+            new_adds = 0
+            for index, row in self.allTitles.iterrows():
+                if row.title not in existing_db['title'].values:
+                    new_adds+=1
+                    existing_db = existing_db.append(row,ignore_index=False).reset_index(drop=True)
+                    logging.info("{} was not found in existing DB so adding it.".format(row.title))
+            existing_db.to_csv("..//Database//all_tmdb_movies.csv")
+            logging.info("Existing DB saved and updated with {} new titles".format(new_adds))
+        except Exception as ex:
+            print(ex)
+            logging.info("No existing database was found. Created new file")
+            self.allTitles.to_csv("..//Database//all_tmdb_movies.csv")
+
+
 
         return self.allTitles
 

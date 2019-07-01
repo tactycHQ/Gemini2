@@ -8,6 +8,7 @@ from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 from PIL import Image
 import logging
+import re
 import operator
 logging.basicConfig(level=logging.INFO)
 # emotkeys = [
@@ -118,15 +119,16 @@ class Sentiments():
                                   'pos':sentScores_pos,
                                   'cpd':sentScores_cpd})
         query_results_processsed = pd.concat([query_results,scores_df],axis=1)
-        query_results_processsed.to_pickle("..//Database//query_results_scores.pkl")
-        query_results_processsed.to_csv("..//Database//query_results_scores.csv")
+        query_results_processsed.to_pickle("..//Database//query_vscores.pkl")
+        query_results_processsed.to_csv("..//Database//query_vscores.csv")
         logging.info("----Scored Appended to Processed Dataframe----")
 
         return query_results_processsed
 
     def getEmotions(self, query_results):
+        '''returns dataframe of tweets with emotions tagged in discrete columns'''
         emot_threshold = 0.55
-        cpd_threshold = 0.95
+        cpd_threshold = 0.90
 
         logging.info("----Selecting tweets within threshold parameters----")
         indexNames = query_results[(query_results['cpd'] < cpd_threshold)].index
@@ -134,14 +136,13 @@ class Sentiments():
         logging.info("----Selected emotions dataframe has {} tweets----".format(emot_by_tweet.shape[0]))
 
         logging.info("----Evaluating Emotions----")
-
         for emot in emotkeys:
             emot_by_tweet[emot] = np.nan
 
         for index, row in tqdm(emot_by_tweet.iterrows()):
             doc = self.nlp(row.spacyTweet)
             for emot in emotkeys:
-                emotVal = doc.similarity(self.nlp(emot))
+                emotVal = float(doc.similarity(self.nlp(emot)))
                 if emotVal > emot_threshold:
                     emot_by_tweet.at[index,emot] = emotVal
 
@@ -151,14 +152,11 @@ class Sentiments():
         logging.info("----Emotions Appended to Processed Dataframe----")
         return emot_by_tweet
 
-    def wordcloudEmotions(self,emotions_by_tweet):
-        text_emotions = ''
-        allEmotions = query_emotions['emotions'].values
+    def wordcloudEmotions(self,df):
 
-        for title_em in allEmotions:
-            emotions = title_em[0]
-            for emotion in emotions:
-                text_emotions= text_emotions+str(emotion)+" "
+        text_emotions = ' '
+        text_emotions = (text_emotions.join(df['TopEmotions'].tolist()))
+        text_emotions = re.sub(' +'," ",text_emotions)
 
         counts=Counter(text_emotions.split())
         print(counts)
@@ -169,43 +167,45 @@ class Sentiments():
         plt.axis("off")
         plt.show()
 
-    def wordcloudTitle(self,query_emotions):
-        text_title = ''
-        allTitles = query_emotions['title'].values
-        for title in allTitles: text_title = text_title + str(title) + " "
+        return df
 
-        counts = Counter(text_title.split())
+    def wordcloudTitle(self,df):
+        title_string = ','
+        allTitles = df['title'].values
+        title_string = title_string.join(allTitles)
+
+        counts = Counter(allTitles)
         print(counts)
 
-        wordcloud = WordCloud(height=400, width=800, scale=20, max_words=200).generate(text_title)
+        wordcloud = WordCloud(height=400, width=800, scale=20, max_words=200).generate(title_string)
         plt.figure(figsize=(20, 10))
         plt.imshow(wordcloud, interpolation='bilinear')
         plt.axis("off")
         plt.show()
 
-    def tagEmotionstoTitle(self,query_emotions):
+    def tagEmotionstoTitle(self,df):
+        emot_col = df.columns.values[8:] # 8 is the index numbers where emotions start
+        emot_df = df.loc[:,emot_col]
+        df['TopEmotions'] = emot_df.apply(lambda x: ' '.join(x[x.notnull()].index),axis=1)
 
-        unique_titles = np.unique(query_emotions['title'].values)
-
-        title_emotions = {}
-        for title in unique_titles:
-            for index, row in query_emotions.iterrows():
-                if title == row.title.values:
-                    # print(title)
-                    title_emotions.setdefault(title,[]).append(row.emotions.values)
+        top_emotions_by_title = df[['title','TopEmotions']].copy()
+        top_emotions_by_title.to_pickle('..//Database//emotions_by_title.pkl')
+        top_emotions_by_title.to_csv('..//Database//emotions_by_title.csv')
+        return top_emotions_by_title
 
 
 
 if __name__ == '__main__':
     query_results = pd.read_pickle("..//Database//query_results.pkl")
     Sentiments = Sentiments()
-    # query_results_processed = Sentiments.getVaderscores(query_results)
-    query_results_processed = pd.read_pickle("..//Database//query_results_scores.pkl")
-    all_emotions = Sentiments.getEmotions(query_results_processed)
-    # all_emotions = pd.read_pickle("..//Database//query_results_emotions.pkl")
-    # Sentiments.wordcloudEmotions(all_emotions)
-    # Sentiments.wordcloudTitle(all_emotions)
-    # Sentiments.tagEmotionstoTitle(all_emotions)
+    # query_vscores = Sentiments.getVaderscores(query_results)
+    # query_vscores = pd.read_pickle("..//Database//query_results_scores.pkl")
+    # emotions_by_tweet = Sentiments.getEmotions(query_vscores)
+    emotions_by_tweet = pd.read_pickle("..//Database//emotions_by_tweet.pkl")
+    emotions_title = Sentiments.tagEmotionstoTitle(emotions_by_tweet)
+    Sentiments.wordcloudEmotions(emotions_title)
+    Sentiments.wordcloudTitle(emotions_title)
+
 
 
 

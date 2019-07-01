@@ -143,13 +143,7 @@ class GetTwitter():
         return spell_corrected
 
 if __name__ == '__main__':
-    df = pd.read_csv("C:\\Users\\anubhav\\Desktop\\Projects\\Pulse1\\data\\nyt_tweets.csv")
-    df.columns = ["tweets","sentiment"]
-    tweets = df['tweets']
-
-    getTw = GetTwitter()
-    clean = getTw.clean_tweets(tweets)
-    pd.DataFrame(np.array(clean)).to_csv("clean.csv")
+    tw = GetTwitter()
 
 
 
