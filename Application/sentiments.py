@@ -95,11 +95,13 @@ class Sentiments():
 
     def __init__(self):
         self.nlp = spacy.load("en_core_web_lg")
+        self.movie_tweets = pd.read_pickle("..//Database//movie_tweets.pkl")
+        self.emot_by_tweet = None
         print("Spacy is loaded")
 
-    def getVaderscores(self, query_results):
+    def getVaderscores(self):
         logging.info("----Calculating Sentiment Scores----")
-        tweets = query_results['vaderTweet']
+        tweets = self.movie_tweets['vaderTweet']
         vader = vaderSentiment.SentimentIntensityAnalyzer()
 
         sentScores_neg = []
@@ -118,21 +120,20 @@ class Sentiments():
                                   'neu':sentScores_neu,
                                   'pos':sentScores_pos,
                                   'cpd':sentScores_cpd})
-        query_results_processsed = pd.concat([query_results,scores_df],axis=1)
-        query_results_processsed.to_pickle("..//Database//query_vscores.pkl")
-        query_results_processsed.to_csv("..//Database//query_vscores.csv")
+        self.movie_tweets = pd.concat([self.movie_tweets,scores_df],axis=1)
+        self.movie_tweets.to_pickle("..//Database//movie_tweets.pkl")
+        self.movie_tweets.to_csv("..//Database//movie_tweets.csv")
         logging.info("----Scored Appended to Processed Dataframe----")
 
-        return query_results_processsed
-
-    def getEmotions(self, query_results):
+    def getEmotions(self):
         '''returns dataframe of tweets with emotions tagged in discrete columns'''
+        df = self.movie_tweets
         emot_threshold = 0.55
         cpd_threshold = 0.90
 
         logging.info("----Selecting tweets within threshold parameters----")
-        indexNames = query_results[(query_results['cpd'] < cpd_threshold)].index
-        emot_by_tweet = query_results.drop(indexNames)
+        indexNames = df[(df['cpd'] < cpd_threshold)].index
+        emot_by_tweet = df.drop(indexNames)
         logging.info("----Selected emotions dataframe has {} tweets----".format(emot_by_tweet.shape[0]))
 
         logging.info("----Evaluating Emotions----")
@@ -147,12 +148,12 @@ class Sentiments():
                     emot_by_tweet.at[index,emot] = emotVal
 
         emot_by_tweet.reset_index(drop=True,inplace=True)
-        emot_by_tweet.to_pickle("..//Database//emotions_by_tweet.pkl")
-        emot_by_tweet.to_csv("..//Database//emotions_by_tweet.csv")
+        self.emot_by_tweet = emot_by_tweet
+        self.emot_by_tweet.to_pickle("..//Database//emot_by_tweet.pkl")
+        self.emot_by_tweet.to_csv("..//Database//emot_by_tweet.csv")
         logging.info("----Emotions Appended to Processed Dataframe----")
-        return emot_by_tweet
 
-    def wordcloudEmotions(self,df):
+    def wordcloudEmotions(self):
 
         text_emotions = ' '
         text_emotions = (text_emotions.join(df['TopEmotions'].tolist()))
@@ -183,7 +184,8 @@ class Sentiments():
         plt.axis("off")
         plt.show()
 
-    def tagEmotionstoTitle(self,df):
+    def tagEmotionstoTitle(self):
+        df = self.emot_by_tweet
         emot_col = df.columns.values[8:] # 8 is the index numbers where emotions start
         emot_df = df.loc[:,emot_col]
         df['TopEmotions'] = emot_df.apply(lambda x: ' '.join(x[x.notnull()].index),axis=1)
@@ -196,15 +198,14 @@ class Sentiments():
 
 
 if __name__ == '__main__':
-    query_results = pd.read_pickle("..//Database//query_results.pkl")
+
     Sentiments = Sentiments()
-    # query_vscores = Sentiments.getVaderscores(query_results)
-    # query_vscores = pd.read_pickle("..//Database//query_results_scores.pkl")
-    # emotions_by_tweet = Sentiments.getEmotions(query_vscores)
-    emotions_by_tweet = pd.read_pickle("..//Database//emotions_by_tweet.pkl")
-    emotions_title = Sentiments.tagEmotionstoTitle(emotions_by_tweet)
-    Sentiments.wordcloudEmotions(emotions_title)
-    Sentiments.wordcloudTitle(emotions_title)
+    Sentiments.getVaderscores()
+    Sentiments.getEmotions()
+    # emotions_by_tweet = pd.read_pickle("..//Database//emotions_by_tweet.pkl")
+    # emotions_title = Sentiments.tagEmotionstoTitle(emotions_by_tweet)
+    # Sentiments.wordcloudEmotions(emotions_title)
+    # Sentiments.wordcloudTitle(emotions_title)
 
 
 

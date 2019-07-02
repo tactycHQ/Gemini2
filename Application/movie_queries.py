@@ -1,6 +1,6 @@
 #Gets data from TMDB and processes data to generate queries
 #Pulls tweets based on queries
-from APICalls.tmdb_api import TMDBRequests
+from APICalls.movies_title import TMDBRequests
 from APICalls.twitter_api import GetTwitter
 from tqdm import tqdm
 import pandas as pd
@@ -10,19 +10,18 @@ from dotmap import DotMap
 import logging
 logging.basicConfig(level=logging.INFO)
 
-class Application():
+class MovieQueries():
 
     def __init__(self):
         pass
 
-    def getTMDBfromDB(self):
+    def getMovieTitles(self):
         '''Loads TMDB data '''
-        self.allTitles = pd.read_csv("..//Database/all_tmdb_movies.csv")
+        self.movie_title = pd.read_csv("..//Database/movie_titles.csv")
 
     def getUniqueTitles(self):
         '''removes duplicate titles from TMDB data'''
-        allTitleNames = self.allTitles['title']
-        unique_titles = np.unique(allTitleNames)
+        unique_titles = np.unique(self.movie_title['title'])
         return unique_titles
 
     def cleanTitle(self, title):
@@ -54,7 +53,7 @@ class Application():
         filter_String = "-filter:retweets -filter:links -filter:replies"
         #note can also add -filter:media if needed but that seems to remove most tweets
         content_string = "AND (release OR film OR movie OR watched)"
-        combination = '({} OR {} OR {} OR {} {} {})'.format(title, self.cleanTitle(title),self.removeSpaces(title),self.quotesTitle(title),content_string, filter_String)
+        combination = '("{}" OR {} OR {} OR {} {} {})'.format(title, self.cleanTitle(title),self.removeSpaces(title),self.quotesTitle(title),content_string, filter_String)
         return combination
 
     def createTwitterQueries(self):
@@ -75,11 +74,11 @@ class Application():
         logging.info("Queries created")
         return query_df
 
-    def getTweets(self,batch_size):
+    def getTweets(self, batch_size):
         '''Queries Twitter API and gets tweet for each title. Cleans the tweet and returns a dataframe of [title, raw tweets, clean tweets]'''
 
         # get titles to query from database
-        self.getTMDBfromDB()
+        self.getMovieTitles()
 
         # create twitter queries
         self.createTwitterQueries()
@@ -92,61 +91,81 @@ class Application():
 
         #start query process
         rawTweets = []
+        tweetId = []
         spacyTweets = []
         vaderTweets=[]
+        tweetTime = []
+        tweetLocation = []
         titleTracker = []
         counter=0
+        tweets_counter = 0
 
         logging.info("Getting Tweets from Twitter API")
         for index, row in tqdm(self.query_df.iterrows()):
             if counter < batch_size:
                 try:
-                    tweets_text, tweet_location, tweet_time = getTwitter.getTweetsbyQuery(row['queryString'], max_tweets, date_since)
-                    spacy_clean = getTwitter.spacy_clean(tweets_text)
-                    vader_clean = getTwitter.vader_clean(tweets_text)
-                    rawTweets.append(tweets_text)
+                    tweet_id, tweet_text, tweet_location, tweet_time = getTwitter.getTweetsbyQuery(row['queryString'], max_tweets, date_since)
+                    spacy_clean = getTwitter.spacy_clean(tweet_text)
+                    vader_clean = getTwitter.vader_clean(tweet_text)
+                    tweetId.append(tweet_id)
+                    rawTweets.append(tweet_text)
                     spacyTweets.append(spacy_clean)
                     vaderTweets.append(vader_clean)
+                    tweetTime.append(tweet_time)
+                    tweetLocation.append(tweet_location)
                     titleTracker.append(row['title'])
                     counter+=1
+                    tweets_counter+=len(tweet_text)
                     print(DotMap(getTwitter.api.rate_limit_status()).resources.search)
                 except Exception as ex:
                     print(ex)
 
         logging.info("Received tweets for {} titles".format(counter))
+        logging.info("{} tweets recieved from Twitter API".format(tweets_counter))
 
         #write query results to dataframe pickle
-        queryResults = pd.DataFrame({'title':titleTracker,
+        queryResults = pd.DataFrame({'tweetId':tweetId,
+                                     'title':titleTracker,
+                                     'time':tweetTime,
                                      'rawTweets':rawTweets,
                                      'spacyTweets':spacyTweets,
-                                     'vaderTweets':vaderTweets}).astype('object')
+                                     'vaderTweets':vaderTweets,
+                                     'location':tweetLocation
+                                     })
 
         queryResults = self.flatten_queries(queryResults)
-        queryResults.to_pickle("..//Database//query_results.pkl")
-        queryResults.to_csv("..//Database//query_results.csv")
+        queryResults.to_pickle("..//Database//movie_tweets.pkl")
+        queryResults.to_csv("..//Database//movie_tweets.csv")
         logging.info("Tweets saved to file")
 
         return queryResults
 
     def flatten_queries(self, query_df):
-        title = []
-        rawTweet = []
-        spacyTweet = []
-        vaderTweet = []
+        rawTweets = []
+        tweetIds = []
+        spacyTweets = []
+        vaderTweets=[]
+        tweetTimes = []
+        tweetLocations = []
+        titles = []
+        titleTracker = []
 
         for index, row in query_df.iterrows():
-            for raw, spacytw, vadertw in zip(row.rawTweets,row.spacyTweets,row.vaderTweets):
-                rawTweet.append(raw)
-                spacyTweet.append(spacytw)
-                vaderTweet.append(vadertw)
-                title.append(row.title)
+            for id, tw_time, raw, spacytw, vadertw, location in zip(row.tweetId, row.time, row.rawTweets,row.spacyTweets,row.vaderTweets, row.location):
+                tweetIds.append(id)
+                tweetTimes.append(tw_time)
+                rawTweets.append(raw)
+                spacyTweets.append(spacytw)
+                vaderTweets.append(vadertw)
+                tweetLocations.append(location)
+                titles.append(row.title)
 
-        flat_queries = pd.DataFrame({'title':title,'rawTweet':rawTweet,'spacyTweet':spacyTweet,'vaderTweet':vaderTweet})
+        flat_queries = pd.DataFrame({'tweetId':tweetIds,'tweetTime':tweetTimes,'title':titles,'rawTweet':rawTweets,'spacyTweet':spacyTweets,'vaderTweet':vaderTweets,'location':tweetLocations})
         return flat_queries
 
 if __name__ == '__main__':
-    app = Application()
-    results = app.getTweets(batch_size=300)
+    mq = MovieQueries()
+    results = mq.getTweets(batch_size=300)
 
 
 

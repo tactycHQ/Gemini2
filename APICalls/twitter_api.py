@@ -66,10 +66,10 @@ class GetTwitter():
         print(limit.resources.search)
 
     def getTweetsbyQuery(self,query,max_tweets,date_since):
+        tweet_id = []
         tweet_text = []
         tweet_location = []
         tweet_time= []
-
 
         date_since = date_since
         tweets = tw.Cursor(self.api.search,
@@ -80,11 +80,12 @@ class GetTwitter():
                   lang="en",
                   since=date_since).items(max_tweets)
         for tweet in tweets:
+            tweet_id.append(tweet.id)
             tweet_text.append(tweet.full_text)
             tweet_location.append(tweet.user.location)
             tweet_time.append(tweet.created_at)
 
-        return tweet_text, tweet_location, tweet_time
+        return tweet_id,tweet_text, tweet_location, tweet_time
 
     def spacy_clean(self,tweetlist):
         clean_tweets = []
@@ -142,8 +143,11 @@ class GetTwitter():
         spell_corrected = re.sub(r'(.)\1+', r'\1\1', joined)
         return spell_corrected
 
+
 if __name__ == '__main__':
-    tw = GetTwitter()
+    twitter = GetTwitter()
+    tweet_id, tweet_text, tweet_location, tweet_time = twitter.getTweetsbyQuery("AVENGERS", max_tweets=1, date_since="06/01/19")
+    print(tweet_id, tweet_text, tweet_location, tweet_time)
 
 
 
