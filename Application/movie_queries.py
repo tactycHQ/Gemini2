@@ -184,7 +184,7 @@ class MovieQueries():
 
     def addQueryCounts(self):
 
-        logging.info("Add query counts to movie_titles")
+        logging.info("Adding query counts to movie_titles")
         tweets_df = self.movie_tweets
         movies_df = self.movie_title
 
@@ -248,6 +248,7 @@ class MovieQueries():
         merged_df['6day_delta'] = merged_df['6day'] - merged_df['5day']
         merged_df['7day_delta'] = merged_df['7day'] - merged_df['6day']
 
+        logging.info("Query counts successfully added")
         # Saving updated movie_titles
         self.movie_title = merged_df.reset_index(drop=True)
 

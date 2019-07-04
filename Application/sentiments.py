@@ -25,7 +25,7 @@ class Sentiments():
         self.nlp = spacy.load("en_core_web_lg")
         self.movie_tweets = pd.read_pickle("..//Database//movie_tweets.pkl")
         self.movie_title = pd.read_csv("..//Database/movie_titles.csv", index_col=0)
-        self.emot_by_tweet = None
+        self.select_movie_tweets = None
         print("Spacy is loaded")
 
     def getVaderscores(self):
@@ -73,38 +73,38 @@ class Sentiments():
                     adjs = adjs + ", " + str(token)
                     df.at[index,'simple_adj'] =adjs[1:]
 
-        self.movie_tweets = df.reset_index(drop=True)
+        self.select_movie_tweets = df.reset_index(drop=True)
 
-    def getEmotions(self):
-        '''gets tweets from movie_tweets, runs similarity check against emotKeys and
-        returns a new dataframe top_tweets with emotions by tweet'''
-        logging.info("----Processing emotions using similarity scores----")
-        df = self.movie_tweets
-
-        idx = df[(df['cpd'] < cpd_threshold)].index
-        emot_by_tweet = df.drop(idx)
-
-        logging.info("----Processing similarity scores on {} tweets----".format(emot_by_tweet.shape[0]))
-
-        for emot in emotkeys:
-            emot_by_tweet[emot] = np.nan
-
-        for index, row in tqdm(emot_by_tweet.iterrows()):
-            doc = self.nlp(row.spacyTweet)
-            for emot in emotkeys:
-                emotVal = float(doc.similarity(self.nlp(emot)))
-                if emotVal > emot_threshold:
-                    emot_by_tweet.at[index,emot] = emotVal
-
-        emot_by_tweet.reset_index(drop=True,inplace=True)
-
-        self.top_tweets = emot_by_tweet
+    # def getEmotions(self):
+    #     '''gets tweets from movie_tweets, runs similarity check against emotKeys and
+    #     returns a new dataframe top_tweets with emotions by tweet'''
+    #     logging.info("----Processing emotions using similarity scores----")
+    #     df = self.movie_tweets
+    #
+    #     idx = df[(df['cpd'] < cpd_threshold)].index
+    #     emot_by_tweet = df.drop(idx)
+    #
+    #     logging.info("----Processing similarity scores on {} tweets----".format(emot_by_tweet.shape[0]))
+    #
+    #     for emot in emotkeys:
+    #         emot_by_tweet[emot] = np.nan
+    #
+    #     for index, row in tqdm(emot_by_tweet.iterrows()):
+    #         doc = self.nlp(row.spacyTweet)
+    #         for emot in emotkeys:
+    #             emotVal = float(doc.similarity(self.nlp(emot)))
+    #             if emotVal > emot_threshold:
+    #                 emot_by_tweet.at[index,emot] = emotVal
+    #
+    #     emot_by_tweet.reset_index(drop=True,inplace=True)
+    #
+    #     self.top_tweets = emot_by_tweet
 
     def tagSimpleAdjtoTitle(self):
-        logging.info("---------Tagging simple adjectices movie_title---------")
+        logging.info("---------Tagging simple adjectives movie_title---------")
 
         # self.top_tweets = pd.read_csv("..//Database//top_tweets.csv",header=0, index_col=0)
-        df = self.movie_tweets.dropna(subset=['simple_adj'])
+        df = self.select_movie_tweets.dropna(subset=['simple_adj'])
         movies_df = self.movie_title
 
         for i, r in movies_df.iterrows():
@@ -129,59 +129,64 @@ class Sentiments():
 
         self.movie_title = movies_df.reset_index(drop=True)
 
-    def tagAdjectives(self):
-        '''gets tweets from movie_tweets, gets adjectives and stores them back in movie_tweets'''
-        df = self.movie_tweets
-        logging.info("----Evaluating Adjectives----")
-
-        for index, row in tqdm(df.iterrows()):
-            doc = self.nlp(row.vaderTweet)
-            adj = findSVAOs(doc)
-            desc = ""
-            for a in adj:
-                desc = desc + " ".join(a) + ", "
-                df.at[index, 'adjectives'] = desc[:-2]
-
-        self.movie_tweets = df
-        logging.info("----Adjectives Appended to Movie_Tweets----")
-
-    def tagEmotionstoTitle(self):
-        logging.info("---------Tagging emotions from similarity scores to movie_title---------")
-
-        # self.top_tweets = pd.read_csv("..//Database//top_tweets.csv",header=0, index_col=0)
-        df = self.top_tweets
-        movies_df = self.movie_title
-
-        emot_col = df.columns.values[13:] # 13 is the index numbers where emotions start
-        emot_df = df.loc[:,emot_col]
-        df['TopEmotions'] = emot_df.apply(lambda x: ','.join(x[x.notnull()].index),axis=1)
-
-        for i, r in movies_df.iterrows():
-            emot = []
-            for j, row in df.iterrows():
-                if row.title == r.title:
-                    if row.TopEmotions:
-                        emot.append(row.TopEmotions)
-
-            emotions = ','.join(emot)
-            movies_df.at[i,'title'] = r.title
-            movies_df.at[i,'topEmotions'] = emotions
-
-        self.movie_title = movies_df
+    # def tagAdjectives(self):
+    #     '''gets tweets from movie_tweets, gets adjectives and stores them back in movie_tweets'''
+    #     df = self.movie_tweets
+    #     logging.info("----Evaluating Adjectives----")
+    #
+    #     for index, row in tqdm(df.iterrows()):
+    #         doc = self.nlp(row.vaderTweet)
+    #         adj = findSVAOs(doc)
+    #         desc = ""
+    #         for a in adj:
+    #             desc = desc + " ".join(a) + ", "
+    #             df.at[index, 'adjectives'] = desc[:-2]
+    #
+    #     self.movie_tweets = df
+    #     logging.info("----Adjectives Appended to Movie_Tweets----")
+    #
+    # def tagEmotionstoTitle(self):
+    #     logging.info("---------Tagging emotions from similarity scores to movie_title---------")
+    #
+    #     # self.top_tweets = pd.read_csv("..//Database//top_tweets.csv",header=0, index_col=0)
+    #     df = self.top_tweets
+    #     movies_df = self.movie_title
+    #
+    #     emot_col = df.columns.values[13:] # 13 is the index numbers where emotions start
+    #     emot_df = df.loc[:,emot_col]
+    #     df['TopEmotions'] = emot_df.apply(lambda x: ','.join(x[x.notnull()].index),axis=1)
+    #
+    #     for i, r in movies_df.iterrows():
+    #         emot = []
+    #         for j, row in df.iterrows():
+    #             if row.title == r.title:
+    #                 if row.TopEmotions:
+    #                     emot.append(row.TopEmotions)
+    #
+    #         emotions = ','.join(emot)
+    #         movies_df.at[i,'title'] = r.title
+    #         movies_df.at[i,'topEmotions'] = emotions
+    #
+    #     self.movie_title = movies_df
 
     def updateDB(self):
         try:
 
             self.movie_title.to_csv("..//Database//movie_titles.csv",encoding='utf-8-sig')
             logging.info("movie_titles.csv saved")
+
             self.movie_tweets.to_pickle("..//Database//movie_tweets.pkl")
             logging.info("movie_tweets.pkl saved")
+
+            self.select_movie_tweets.to_pickle("..//Database//select_movie_tweets.pkl")
+            logging.info("select_movie_tweets.pkl saved")
+
             self.movie_tweets.to_csv("..//Database//movie_tweets.csv",encoding='utf-8-sig')
             logging.info("movie_tweets.csv saved")
-            # self.top_tweets.to_pickle("..//Database//top_tweets.pkl")
-            # logging.info("top_tweets.pkl saved")
-            # self.top_tweets.to_csv("..//Database//top_tweets.csv",encoding='utf-8')
-            # logging.info("top_tweets.csv saved")
+
+            self.select_movie_tweets.to_csv("..//Database//select_movie_tweets.csv", encoding='utf-8-sig')
+            logging.info("select_movie_tweets.csv saved")
+
             logging.info("All database successfully saved")
         except Exception as ex:
             logging.info("Error saving down one of the final files")
