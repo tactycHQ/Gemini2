@@ -1,5 +1,6 @@
 import json
 import requests
+import datetime
 from dotmap import DotMap
 from APICalls.config import get_config_from_json
 import pandas as pd
@@ -15,8 +16,12 @@ class TMDBRequests():
         self.debug = True
 
         try:
-            self.manualMovies = pd.read_csv("..//Database//manual_movies.csv")
+            self.manualMovies = pd.read_excel("..//Database//manual_movies.xlsx",header=0)
+            self.manualIncl = self.manualMovies['inclusions'].dropna()
+            self.manualExcl = self.manualMovies['exclusions'].dropna()
+
         except Exception as ex:
+            print(ex)
             self.manualMovies =pd.DataFrame()
             logging.info("Couldn't find manual movie files. Creating new empty one")
 
@@ -104,39 +109,44 @@ class TMDBRequests():
     def getUniqueTitles(self):
         '''Add titles from manual list while checking against duplicates'''
         logging.info("Getting unique titles from manual list")
-        manualTitles = pd.read_csv("..//Database//manual_movies.csv", header=0).values.tolist()
 
-        unique_from_tmdb = [title for title in manualTitles if title not in self.tmdbPull.title.values]
+        unique_from_tmdb = [title for title in self.manualIncl if title not in self.tmdbPull.title.values]
         unique_titles = [title for title in unique_from_tmdb if title not in self.movie_titles.title.values]
         logging.info("{} unique titles found in manual search".format(len(unique_titles)))
 
         return unique_titles
 
     def manualAdds(self):
+
         # get unique titles checking against current DB and against latest TMDB Pull
         unique_titles = self.getUniqueTitles()
 
         # get TMDB data for unique manual additions
-        manualMovies = pd.DataFrame()
+        manualData = pd.DataFrame()
         for title in unique_titles:
             try:
                 path= "https://api.themoviedb.org/3/search/movie?api_key={}&query={}".format(self.api_key, title)
                 response = requests.get(path)
                 response_dict = response.json()
-                manualMovies = manualMovies.append(response_dict['results'][0],ignore_index=True)
-                manualMovies['tmdbCategory']='manual'
+                manualData = manualData.append(response_dict['results'][0],ignore_index=True)
+                manualData['tmdbCategory']='manual'
+                logging.info("Received metadata from TMDB for {}".format(title))
             except Exception as ex:
-                logging.warning(ex)
+                logging.warning("Did not find {} on TMDB".format(title))
+                print(ex)
+
 
         #add manual titles with TMDB data to existing DB
         additions = 0
-        for index, row in manualMovies.iterrows():
+        for index, row in manualData.iterrows():
             if self.movie_titles.empty:
                 logging.info("Initialize all titles first")
             else:
                 self.movie_titles = self.movie_titles.append(row, ignore_index=True).reset_index(drop=True)
                 additions += 1
                 logging.info("{} added to database from manual list".format(row.title))
+
+
 
         logging.info("{} movies added manually with TMDB Data".format(additions))
 
@@ -170,11 +180,25 @@ class TMDBRequests():
                                               topRatedMovies,
                                               upcomingMovies,
                                               nowPlayingMovies],
-                                             ignore_index=True).reset_index(drop=True)
+                                             ignore_index=True)
+        self.tmdbPull.reset_index(drop=True,inplace=True)
 
         logging.info("{} movies extracted from TMDB Curated Lists".format(self.tmdbPull.shape[0]))
         return self.tmdbPull
 
+    def dropDuplicates(self):
+        unique_df = self.movie_titles.drop_duplicates(subset=['title'], keep='first')
+        self.movie_titles = unique_df.reset_index(drop=True)
+        logging.info("{} remain after duplicates rationalization".format(self.movie_titles.shape[0]))
+
+    def removeExclusions(self):
+        df = self.movie_titles
+
+        idx_drop = df[df['title'].isin(self.manualExcl)].index
+        result_df = df.drop(idx_drop, inplace = False)
+
+        self.movie_titles = result_df.reset_index(drop=True)
+        logging.info("{} remain after exclusions".format(self.movie_titles.shape[0]))
 
     def updateMovieTitles(self,manualList=None):
         '''Gets data from TMDB for 4 categories - popular, top rated, upcoming and now playing and also checks with manual list
@@ -185,7 +209,15 @@ class TMDBRequests():
 
         #Adding from manual data if not duplicates
         self.manualAdds()
+
+        # Adding from manual data if not duplicates
         self.newTMDBAdds()
+
+        # Remove duplicates
+        self.dropDuplicates()
+
+        #remove exclusions
+        self.removeExclusions()
 
         self.movie_titles['content_type'] = "movie"
         self.movie_titles.to_csv("..//Database//movie_titles.csv")
@@ -193,3 +225,5 @@ class TMDBRequests():
 if __name__ == '__main__':
     TMDB = TMDBRequests()
     TMDB.updateMovieTitles()
+
+

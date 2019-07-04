@@ -20,11 +20,11 @@ def getJustWatched():
     date_since = "2019-06-01"
 
     logging.info("Getting Tweets from Twitter API")
-    tweets_text, tweet_location, tweet_time = getTwitter.getTweetsbyQuery(jw_query, max_tweets,date_since)
+    tweet_id,tweet_text, tweet_location, tweet_time = getTwitter.getTweetsbyQuery(jw_query, max_tweets,date_since)
     print(DotMap(getTwitter.api.rate_limit_status()).resources.search)
 
-    movies_just_watched = pd.DataFrame([tweets_text,tweet_location,tweet_time]).transpose()
-    movies_just_watched.columns = ['tweet','location','time']
+    movies_just_watched = pd.DataFrame([tweet_id,tweet_text, tweet_location, tweet_time]).transpose()
+    movies_just_watched.columns = ['id','tweet','location','time']
     movies_just_watched.to_csv("..//Database//movies_just_watched.csv")
 
 

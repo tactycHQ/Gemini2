@@ -100,11 +100,11 @@ class GetTwitter():
         return clean_tweets
 
     def spacy_cleaner(self,text):
-        try:
-            decoded = unidecode.unidecode(codecs.decode(text, 'unicode_escape'))
-        except:
-            decoded = unidecode.unidecode(text)
-        apostrophe_handled = re.sub("’", "'", decoded)
+        # try:
+        #     decoded = unidecode.unidecode(codecs.decode(text, 'unicode_escape'))
+        # except:
+        #     decoded = unidecode.unidecode(text)
+        apostrophe_handled = re.sub("’", "'", text)
         expanded = ' '.join([self.contraction_mapping[t] if t in self.contraction_mapping else t for t in apostrophe_handled.split(" ")])
         parsed = self.nlp(expanded)
         final_tokens = []
@@ -124,11 +124,11 @@ class GetTwitter():
         return spell_corrected
 
     def vader_cleaner(self, text):
-        try:
-            decoded = unidecode.unidecode(codecs.decode(text, 'unicode_escape'))
-        except:
-            decoded = unidecode.unidecode(text)
-        apostrophe_handled = re.sub("’", "'", decoded)
+        # try:
+        #     decoded = unidecode.unidecode(codecs.decode(text, 'unicode_escape'))
+        # except:
+        #     decoded = unidecode.unidecode(text)
+        apostrophe_handled = re.sub("’", "'", text)
         expanded = ' '.join([self.contraction_mapping[t] if t in self.contraction_mapping else t for t in apostrophe_handled.split(" ")])
         parsed = self.nlp(expanded)
         final_tokens = []
@@ -146,7 +146,7 @@ class GetTwitter():
 
 if __name__ == '__main__':
     twitter = GetTwitter()
-    tweet_id, tweet_text, tweet_location, tweet_time = twitter.getTweetsbyQuery("AVENGERS", max_tweets=1, date_since="06/01/19")
+    tweet_id, tweet_text, tweet_location, tweet_time = twitter.getTweetsbyQuery("can't", max_tweets=1, date_since="06/01/19")
     print(tweet_id, tweet_text, tweet_location, tweet_time)
 
 
