@@ -1,12 +1,11 @@
 #Gets data from TMDB and processes data to generate queries
 #Pulls tweets based on queries
-from APICalls.movies_title import TMDBRequests
 from APICalls.twitter_api import GetTwitter
 from tqdm import tqdm
+import time
 import datetime
 import pandas as pd
 import numpy as np
-from itertools import islice
 from dotmap import DotMap
 import logging
 
@@ -39,19 +38,21 @@ class MovieQueries():
 
         idx = df[df.title.isin(unique_titles)].index
         category = df.loc[idx,'tmdbCategory'].values.tolist()
+        content_type = df.loc[idx, 'content_type'].values.tolist()
+
 
         logging.info("------Found {} unique titles".format(unique_titles.shape[0]))
-        return unique_titles, category
+        return unique_titles, category, content_type
 
-    def cleanTitle(self, title):
-        '''Cleans title name by removing hifens, colons and periods. So "Avengers: Endgame" becomes "Avengers Endgame'''
-        # cleanTitle = title.replace(" ", "").lower()
-        cleanTitle = title.replace(",", "")
-        cleanTitle = cleanTitle.replace(".", "")
-        cleanTitle = cleanTitle.replace("-", "")
-        cleanTitle = cleanTitle.replace("'", "")
-        cleanTitle = cleanTitle.replace(":","")
-        return cleanTitle
+    # def cleanTitle(self, title):
+    #     '''Cleans title name by removing hifens, colons and periods. So "Avengers: Endgame" becomes "Avengers Endgame'''
+    #     # cleanTitle = title.replace(" ", "").lower()
+    #     cleanTitle = title.replace(",", "")
+    #     cleanTitle = cleanTitle.replace(".", "")
+    #     cleanTitle = cleanTitle.replace("-", "")
+    #     cleanTitle = cleanTitle.replace("'", "")
+    #     cleanTitle = cleanTitle.replace(":","")
+    #     return cleanTitle
 
     def removeSpaces(self, title):
         '''Cleans title name by removing spaces, hifens, colons and periods. So "Avengers: Endgame" becomes "avengersendgame'''
@@ -63,27 +64,32 @@ class MovieQueries():
         spacesRemoved = spacesRemoved.replace(":","")
         return spacesRemoved
 
-    def quotesTitle(self, title):
-        '''Adds quotes around titles. So [Avengers: Endgame] becomes "Avengers: Endgame" so twitter can use this exact string'''
-        return '"{}"'.format(title)
-
-    def queryCombinations(self, title, category):
+    def queryCombinations(self, title, category, content_type):
         '''Generates a query string for each title'''
-        filter_String = "-filter:retweets -filter:links -filter:replies"
+        filter_string = "-filter:retweets -filter:links -filter:replies"
+
         #note can also add -filter:media if needed but that seems to remove most tweets
-        content_string = "AND (release OR film OR movie OR watched OR teaser OR trailer)"
-        combination = '("{}" OR {} OR {} OR {} {} {})'.format(title, self.cleanTitle(title),self.removeSpaces(title),self.quotesTitle(title),content_string, filter_String)
+        if content_type == 'movie':
+            print("found movie")
+            content_string = "AND (just saw OR just watched) AND (film OR movie OR teaser OR trailer)"
+        elif content_type == 'tv':
+            print("found tv")
+            content_string = "AND (just saw OR just watched OR just started watching) AND (show OR tv OR series OR episode)"
+        else:
+            print("No category found")
+
+        combination = '("{}" OR {} {} {})'.format(title,self.removeSpaces(title),content_string, filter_string)
         return combination
 
     def createTwitterQueries(self):
         '''Creates query combinations for all titles and writes it to a file to be processed by twitter via getTweets. Returns a dataframe of [title, query string]'''
 
-        titles, categories = self.getUniqueTitles() #get unique titles
+        titles, categories, content_type = self.getUniqueTitles()
 
         logging.info("Creating queries")
         query_dict = dict()
-        for title, category in zip(titles, categories):
-            query_dict.update({title:self.queryCombinations(title, category)})
+        for title, category, content_type in zip(titles, categories, content_type):
+            query_dict.update({title:self.queryCombinations(title, category, content_type)})
 
 
         query_df = pd.DataFrame(list(query_dict.values()), index = query_dict.keys()).reset_index()
@@ -134,9 +140,14 @@ class MovieQueries():
                         titleTracker.append(row['title'])
                         counter+=1
                         tweets_counter+=len(tweet_text)
+                        logging.info("Processing title {}".format(counter))
                         print(DotMap(getTwitter.api.rate_limit_status()).resources.search)
+                        if counter % 150 == 0:
+                            time.sleep(60)
+                            logging.info("Pausing. Will resume in 5 seconds...")
                     except Exception as ex:
                         print(ex)
+                        continue
 
             logging.info("Received tweets for {} titles".format(counter))
             logging.info("{} tweets recieved from Twitter API".format(tweets_counter))

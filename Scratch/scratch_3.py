@@ -1,20 +1,10 @@
-import tweepy as tw
-import numpy as np
-from dotmap import DotMap
-import pandas as pd
-import json
+import spacy
 import codecs
 import unidecode
 import re
-import spacy
-from APICalls.config import get_config_from_json
+nlp = spacy.load("en_core_web_lg")
 
-
-class GetTwitter():
-
-    def __init__(self):
-        self.nlp = spacy.load('en_core_web_lg')
-        self.contraction_mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot",
+contraction_mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot",
                                "can't've": "cannot have", "'cause": "because", "could've": "could have",
                                "couldn't": "could not", "couldn't've": "could not have", "didn't": "did not",
                                "doesn't": "does not", "don't": "do not", "hadn't": "had not",
@@ -58,158 +48,33 @@ class GetTwitter():
                                "y'all've": "you all have",
                                "you'd": "you would", "you'd've": "you would have", "you'll": "you will",
                                "you'll've": "you will have", "you're": "you are", "you've": "you have"}
-        self.keys = get_config_from_json('..//Keys//keys.json')
-        self.auth = tw.AppAuthHandler(self.keys.twitter_keys.consumer_key, self.keys.twitter_keys.consumer_secret)
-        try:
-            self.api = tw.API(self.auth, wait_on_rate_limit=True)
-            limit = self.api.rate_limit_status()
-            limit = DotMap(limit)
-            print(limit.resources.search)
-        except Exception as ex:
-            print(ex)
 
-    def getTweetsbyQuery(self,query,max_tweets,date_since):
-        tweet_id = []
-        tweet_text = []
-        tweet_location = []
-        tweet_time= []
+def vader_cleaner(text):
+    # try:
+    #     decoded = unidecode.unidecode(codecs.decode(text, 'unicode_escape'))
+    # except:
+    #     decoded = unidecode.unidecode(text)
+    # print(decoded)
 
-        date_since = date_since
-        try:
-            tweets = tw.Cursor(self.api.search,
-                      q=query,
-                      count=max_tweets,
-                      tweet_mode = 'extended',
-                      result_type = 'mixed',
-                      lang="en",
-                      since=date_since).items(max_tweets)
-        except Exception as ex:
-            print(ex)
-        for tweet in tweets:
-            tweet_id.append(tweet.id)
-            tweet_text.append(tweet.full_text)
-            tweet_location.append(tweet.user.location)
-            tweet_time.append(tweet.created_at)
+    apostrophe_handled = re.sub("’", "'", text)
+    expanded = ' '.join(
+        [contraction_mapping[t] if t in contraction_mapping else t for t in apostrophe_handled.split(" ")])
 
-        return tweet_id,tweet_text, tweet_location, tweet_time
 
-    def spacy_clean(self,tweetlist):
-        clean_tweets = []
-        for tweet in tweetlist:
-            clean_tweets.append(self.spacy_cleaner(tweet))
-        return clean_tweets
-
-    def vader_clean(self,tweetlist):
-        clean_tweets = []
-        for tweet in tweetlist:
-            clean_tweets.append(self.vader_cleaner(tweet))
-        return clean_tweets
-
-    def spacy_cleaner(self,text):
-        # try:
-        #     decoded = unidecode.unidecode(codecs.decode(text, 'unicode_escape'))
-        # except:
-        #     decoded = unidecode.unidecode(text)
-        apostrophe_handled = re.sub("’", "'", text)
-        expanded = ' '.join([self.contraction_mapping[t] if t in self.contraction_mapping else t for t in apostrophe_handled.split(" ")])
-        parsed = self.nlp(expanded)
-        final_tokens = []
-        for t in parsed:
-            if t.is_punct or t.is_space or t.like_num or t.like_url or str(t).startswith('@'):
-                pass
-            else:
-                if t.lemma_ == '-PRON-':
-                    # final_tokens.append(str(t))
-                    pass
-                else:
-                    sc_removed = re.sub("[^a-zA-Z]", '', str(t.lemma_))
-                    if len(sc_removed) > 1:
-                        final_tokens.append(sc_removed)
-        joined = ' '.join(final_tokens)
-        spell_corrected = re.sub(r'(.)\1+', r'\1\1', joined)
-        return spell_corrected
-
-    def vader_cleaner(self, text):
-        # try:
-        #     decoded = unidecode.unidecode(codecs.decode(text, 'unicode_escape'))
-        # except:
-        #     decoded = unidecode.unidecode(text)
-        apostrophe_handled = re.sub("’", "'", text)
-        expanded = ' '.join([self.contraction_mapping[t] if t in self.contraction_mapping else t for t in apostrophe_handled.split(" ")])
-        parsed = self.nlp(expanded)
-        final_tokens = []
-        for t in parsed:
-            if t.is_punct or t.is_space or t.like_num or t.like_url or str(t).startswith('@'):
-                pass
-            else:
-                sc_removed = re.sub("[^a-zA-Z]", '', str(t))
-                if len(sc_removed) > 1:
-                    final_tokens.append(sc_removed)
-        joined = ' '.join(final_tokens)
-        spell_corrected = re.sub(r'(.)\1+', r'\1\1', joined)
-        return spell_corrected
+    parsed = nlp(expanded)
+    final_tokens = []
+    for t in parsed:
+        if t.is_punct or t.is_space or t.like_num or t.like_url or str(t).startswith('@'):
+            pass
+        else:
+            sc_removed = re.sub("[^a-zA-Z]", '', str(t))
+            if len(sc_removed) > 1:
+                final_tokens.append(sc_removed)
+    joined = ' '.join(final_tokens)
+    spell_corrected = re.sub(r'(.)\1+', r'\1\1', joined)
+    return spell_corrected
 
 
 if __name__ == '__main__':
-    twitter = GetTwitter()
-    tweet_id, tweet_text, tweet_location, tweet_time = twitter.getTweetsbyQuery("can't", max_tweets=1, date_since="06/01/19")
-    print(tweet_id, tweet_text, tweet_location, tweet_time)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    text = "I can’t stop listening to the new Aladdin soundtrack. I think the entire film is a MASTERPIECE I just can’t"
+    print(vader_cleaner(text))

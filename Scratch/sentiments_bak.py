@@ -1,8 +1,8 @@
 import spacy
+from adjectives import *
 from tqdm import tqdm
 from collections import Counter
 import statistics
-from adjectives import *
 import numpy as np
 import pandas as pd
 from vaderSentiment import vaderSentiment
@@ -14,14 +14,10 @@ import re
 import operator
 logging.basicConfig(level=logging.INFO)
 
-#GLOBAL VARIABLES
 emotkeys_csv = pd.read_csv("..//Database/emotkeys.csv", header=0,index_col=False).values.tolist()
 emotkeys = [item for items in emotkeys_csv for item in items]
 emot_threshold = 0.575
 cpd_threshold = 0.70
-ADJECTIVES = ["acomp", "amod"]
-EXCLTOKEN = ["good","first","live","only","last","far","next","middle","absolute","cast","set","pieces","other","hla","actual","best","favorite",
-             "fun","great","ready"]
 
 class Sentiments():
 
@@ -73,11 +69,36 @@ class Sentiments():
             doc = self.nlp(row.vaderTweet)
             adjs = ""
             for i, token in enumerate(doc):
-                    if token.dep_ in ADJECTIVES and str(token) not in EXCLTOKEN:
-                        adjs = adjs + ", " + str(token)
-                        df.at[index,'simple_adj'] =adjs[1:]
+                if token.pos_ == 'ADJ':
+                    adjs = adjs + ", " + str(token)
+                    df.at[index,'simple_adj'] =adjs[1:]
 
         self.select_movie_tweets = df.reset_index(drop=True)
+
+    # def getEmotions(self):
+    #     '''gets tweets from movie_tweets, runs similarity check against emotKeys and
+    #     returns a new dataframe top_tweets with emotions by tweet'''
+    #     logging.info("----Processing emotions using similarity scores----")
+    #     df = self.movie_tweets
+    #
+    #     idx = df[(df['cpd'] < cpd_threshold)].index
+    #     emot_by_tweet = df.drop(idx)
+    #
+    #     logging.info("----Processing similarity scores on {} tweets----".format(emot_by_tweet.shape[0]))
+    #
+    #     for emot in emotkeys:
+    #         emot_by_tweet[emot] = np.nan
+    #
+    #     for index, row in tqdm(emot_by_tweet.iterrows()):
+    #         doc = self.nlp(row.spacyTweet)
+    #         for emot in emotkeys:
+    #             emotVal = float(doc.similarity(self.nlp(emot)))
+    #             if emotVal > emot_threshold:
+    #                 emot_by_tweet.at[index,emot] = emotVal
+    #
+    #     emot_by_tweet.reset_index(drop=True,inplace=True)
+    #
+    #     self.top_tweets = emot_by_tweet
 
     def tagSimpleAdjtoTitle(self):
         logging.info("---------Tagging simple adjectives movie_title---------")
@@ -96,7 +117,7 @@ class Sentiments():
                     if row.cpd:
                         cpd.append(row.cpd)
 
-            simple_adjs = ','.join(str(elem) for elem in adj)
+            simple_adjs = str(adj)
 
             if cpd:
                 cpd_avg = statistics.mean(cpd)
@@ -108,21 +129,45 @@ class Sentiments():
 
         self.movie_title = movies_df.reset_index(drop=True)
 
-    def getSVAO(self):
-        '''gets tweets from movie_tweets, gets adjectives and stores them back in movie_tweets'''
-        df = self.movie_tweets
-        logging.info("----Evaluating Adjectives----")
-
-        for index, row in tqdm(df.iterrows()):
-            doc = self.nlp(row.vaderTweet)
-            adj = findSVAOs(doc)
-            desc = ""
-            for a in adj:
-                desc = desc + " ".join(a) + ", "
-                df.at[index, 'adjectives'] = desc[:-2]
-
-        self.movie_tweets = df
-        logging.info("----Adjectives Appended to Movie_Tweets----")
+    # def tagAdjectives(self):
+    #     '''gets tweets from movie_tweets, gets adjectives and stores them back in movie_tweets'''
+    #     df = self.movie_tweets
+    #     logging.info("----Evaluating Adjectives----")
+    #
+    #     for index, row in tqdm(df.iterrows()):
+    #         doc = self.nlp(row.vaderTweet)
+    #         adj = findSVAOs(doc)
+    #         desc = ""
+    #         for a in adj:
+    #             desc = desc + " ".join(a) + ", "
+    #             df.at[index, 'adjectives'] = desc[:-2]
+    #
+    #     self.movie_tweets = df
+    #     logging.info("----Adjectives Appended to Movie_Tweets----")
+    #
+    # def tagEmotionstoTitle(self):
+    #     logging.info("---------Tagging emotions from similarity scores to movie_title---------")
+    #
+    #     # self.top_tweets = pd.read_csv("..//Database//top_tweets.csv",header=0, index_col=0)
+    #     df = self.top_tweets
+    #     movies_df = self.movie_title
+    #
+    #     emot_col = df.columns.values[13:] # 13 is the index numbers where emotions start
+    #     emot_df = df.loc[:,emot_col]
+    #     df['TopEmotions'] = emot_df.apply(lambda x: ','.join(x[x.notnull()].index),axis=1)
+    #
+    #     for i, r in movies_df.iterrows():
+    #         emot = []
+    #         for j, row in df.iterrows():
+    #             if row.title == r.title:
+    #                 if row.TopEmotions:
+    #                     emot.append(row.TopEmotions)
+    #
+    #         emotions = ','.join(emot)
+    #         movies_df.at[i,'title'] = r.title
+    #         movies_df.at[i,'topEmotions'] = emotions
+    #
+    #     self.movie_title = movies_df
 
     def updateDB(self):
         try:
@@ -146,8 +191,6 @@ class Sentiments():
         except Exception as ex:
             logging.info("Error saving down one of the final files")
             logging.info(ex)
-
-
 
     # def wordcloudEmotions(self):
     #     "Creates word cloud of top emotions in top titles"
@@ -187,8 +230,12 @@ if __name__ == '__main__':
     Sentiments.getVaderscores()
     Sentiments.getSimpleAdjEmotions()
     Sentiments.tagSimpleAdjtoTitle()
-    # Sentiments.getSVAO()
+    # Sentiments.tagAdjectives()
+    # Sentiments.getEmotions()
+    # Sentiments.tagEmotionstoTitle()
     Sentiments.updateDB()
+    # Sentiments.wordcloudEmotions()
+    # Sentiments.wordcloudTitle()
 
 
 

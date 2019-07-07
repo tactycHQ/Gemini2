@@ -32,7 +32,6 @@ class TMDBRequests():
             self.movie_titles = self.createCombinedTMDB()
             logging.info("Couldn't find movie_titles file. Initializing new file from latest TMDB pull")
 
-
     def getMovieGenres(self):
         path = "https://api.themoviedb.org/3/genre/movie/list?api_key={}&language=en-US".format(self.api_key)
 
@@ -172,10 +171,10 @@ class TMDBRequests():
 
     def createCombinedTMDB(self):
         self.tmdbPull = pd.DataFrame()
-        popularMovies = self.getPopularMovies(pages=2)
-        topRatedMovies = self.getTopRatedMovies(pages=2)
-        upcomingMovies = self.getUpcomingMovies(pages=2)
-        nowPlayingMovies = self.getNowPlayingMovies(pages=2)
+        popularMovies = self.getPopularMovies(pages=4)
+        topRatedMovies = self.getTopRatedMovies(pages=4)
+        upcomingMovies = self.getUpcomingMovies(pages=4)
+        nowPlayingMovies = self.getNowPlayingMovies(pages=4)
         self.tmdbPull = self.tmdbPull.append([popularMovies,
                                               topRatedMovies,
                                               upcomingMovies,
@@ -200,6 +199,22 @@ class TMDBRequests():
         self.movie_titles = result_df.reset_index(drop=True)
         logging.info("{} remain after exclusions".format(self.movie_titles.shape[0]))
 
+    def updateCategories(self):
+        df = self.movie_titles
+        curr_d = datetime.datetime.now()
+
+        for index, row in df.iterrows():
+            try:
+                rel_date = datetime.datetime.strptime(str(row.release_date),'%Y-%m-%d')
+                if rel_date > curr_d:
+                    logging.info('Updating category for {}'.format(row.title))
+                    df.at[index, 'tmdbCategory'] = 'upcoming'
+            except Exception as ex:
+                logging.info("One of titles did not have correct release date string")
+                continue
+
+        self.movie_titles = df
+
     def updateMovieTitles(self,manualList=None):
         '''Gets data from TMDB for 4 categories - popular, top rated, upcoming and now playing and also checks with manual list
         Combines TMDB data into master allTitles dataframe and saves to file '''
@@ -210,7 +225,7 @@ class TMDBRequests():
         #Adding from manual data if not duplicates
         self.manualAdds()
 
-        # Adding from manual data if not duplicates
+        # Adding from new TMDB Pull data if not duplicates
         self.newTMDBAdds()
 
         # Remove duplicates
@@ -218,6 +233,9 @@ class TMDBRequests():
 
         #remove exclusions
         self.removeExclusions()
+
+        # update categories for upcoming films
+        self.updateCategories()
 
         self.movie_titles['content_type'] = "movie"
         self.movie_titles.to_csv("..//Database//movie_titles.csv")
