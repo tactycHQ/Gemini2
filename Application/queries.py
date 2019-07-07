@@ -70,7 +70,7 @@ class MovieQueries():
 
         #note can also add -filter:media if needed but that seems to remove most tweets
         if content_type == 'movie':
-            content_string = "AND (just saw OR just watched) AND (film OR movie OR teaser OR trailer)"
+            content_string = "AND (saw OR watched OR watching) AND (film OR movie OR teaser OR trailer)"
         elif content_type == 'tv':
             print("found tv")
             content_string = "AND (just saw OR just watched OR just started watching) AND (show OR tv OR series OR episode)"
