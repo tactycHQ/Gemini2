@@ -70,7 +70,6 @@ class MovieQueries():
 
         #note can also add -filter:media if needed but that seems to remove most tweets
         if content_type == 'movie':
-            print("found movie")
             content_string = "AND (just saw OR just watched) AND (film OR movie OR teaser OR trailer)"
         elif content_type == 'tv':
             print("found tv")
@@ -110,7 +109,7 @@ class MovieQueries():
             # instantate twitter api
             logging.info("Initializing Twitter API")
             getTwitter = GetTwitter()
-            max_tweets = 200
+            max_tweets = 300
             date_since = "2019-06-01"
 
             #start query process

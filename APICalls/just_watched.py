@@ -10,13 +10,14 @@ def getJustWatched():
     '''Queries Twitter API and gets tweet for just watched string'''
 
     content_string = '("just watched" OR "watching" OR "just saw" OR "just finished watching") AND (film OR movie)'
-    filter_String = "-filter:retweets -filter:links -filter:replies"
-    jw_query= '({} {})'.format(content_string, filter_String)
+    filter_string = "-filter:retweets -filter:links -filter:replies"
+    excl_string = "-spiderman OR -spider-Man OR -toy OR -midsommar"
+    jw_query= '({} {} {})'.format(content_string, excl_string,filter_string)
 
     # instantiate twitter api
     logging.info("Initializing Twitter API")
     getTwitter = GetTwitter()
-    max_tweets = 100
+    max_tweets = 1000
     date_since = "2019-06-01"
 
     logging.info("Getting Tweets from Twitter API")
