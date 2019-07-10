@@ -152,7 +152,9 @@ class GetTwitter():
 
 if __name__ == '__main__':
     twitter = GetTwitter()
-    tweet_id, tweet_text, tweet_location, tweet_time = twitter.getTweetsbyQuery("can't", max_tweets=1, date_since="06/01/19")
+    query = ['Julie of the Wolves']
+    print(query[0])
+    tweet_id, tweet_text, tweet_location, tweet_time = twitter.getTweetsbyQuery(query[0], max_tweets=300, date_since="2019-06-01")
     print(tweet_id, tweet_text, tweet_location, tweet_time)
 
 
