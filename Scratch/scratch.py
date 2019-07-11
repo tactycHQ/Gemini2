@@ -1,17 +1,19 @@
-video_url = 'https://www.youtube.com/watch?v=kYX87kkyubk'
-preg_match("#(?<=v=)[a-zA-Z0-9-]+(?=&)|(?<=v\/)[^&\n]+(?=\?)|(?<=v=)[^&\n]+|(?<=youtu.be/)[^&\n]+#", video_url, matches);
+import tweepy
 
-// get video info from id
-$video_id = $matches[0];
-$video_info = file_get_contents('http://www.youtube.com/get_video_info?&video_id='.$video_id);
-parse_str($video_info, $video_info_array);
+consumer_key = "TCAQaSJq0qAjsWyKZdakGssNN",
+consumer_secret = "o55EyHnqW5NNA05ds29Nvpmg7VkTkpdY2s76EwA6oUfIv8siea",
+access_token = "3722095873-ums9qpIH3g7Y3YJ5kvh3nNMbbslg1gvXrY1Tq8K",
+access_token_secret = "yhwDe9kOlU0boWNMlsXYxS6CVfkJvJfLF2Y8NoRn5PlXQ"
 
-if (isset($video_info_array['caption_tracks'])) {
-    $tracks = explode(',', $video_info_array['caption_tracks']);
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+auth.set_access_token(access_token, access_token_secret)
 
-    // print info for each track (including url to track content)
-    foreach ($tracks as $track) {
-        parse_str($track, $output);
-        print_r($output);
-    }
-}
+# Creation of the actual interface, using authentication
+api = tweepy.API(auth)
+
+query = "india"
+max_tweets = 1
+tweets = tweepy.Cursor(api.search, q=query).items(max_tweets)
+
+for tweet in tweets:
+    print(tweet.created_at)

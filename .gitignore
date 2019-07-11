@@ -132,3 +132,4 @@ requirements.txt
 /Database/query_results.csv
 /Database/query_results.pkl
 /Database/manual_movies.csv
+/Scratch/scratch.py
